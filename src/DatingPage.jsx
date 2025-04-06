@@ -11,7 +11,6 @@ const DatingPage = ({ goToPage }) => {
   const { sharedData, updateSharedData } = useContext(AppContext);
 
   useEffect(() => {
-   
     if (sharedData.timerActive) {
       console.log("✅ Cancelling timeout since user arrived in dating room");
 
@@ -28,18 +27,23 @@ const DatingPage = ({ goToPage }) => {
   const handleTimerComplete = async () => {
     console.log("Timer finished — calling completion API");
     try {
-      const res = await fetch(`${API}dateComplete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event_id: sharedData.event_id,
-          dateRoomId: sharedData.dateRoomId,
-          userData: sharedData.user,
-        }),
+      // const res = await fetch(`${API}dateComplete`, {
+      //   method: "POST",
+      //   headers: { "Content-Type": "application/json" },
+      //   body: JSON.stringify({
+      //     event_id: sharedData.event_id,
+      //     dateRoomId: sharedData.dateRoomId,
+      //     userData: sharedData.user,
+      //   }),
+      // });
+      // const json = await res.json();
+      // console.log("dateComplete response:", json);
+      socket.emit("switch_room", {
+        from: sharedData.dateRoomId,
+        to: sharedData.event_id,
       });
-      const json = await res.json();
-      console.log("dateComplete response:", json);
-      goToPage("summary");
+      goToPage("waiting");
+      // fetch
     } catch (err) {
       console.error("Error calling dateComplete:", err);
     }

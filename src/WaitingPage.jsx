@@ -88,7 +88,11 @@ const WaitingPage = ({ goToPage }) => {
     if (!matchData) return;
     setIsConfirmed(true);
     setShowModal(false);
-    socket.emit("switch_room", matchData.dateRoomId);
+    socket.emit("switch_room", {
+      from: sharedData.event_id,
+      to: matchData.dateRoomId,
+    });
+
     confirmDate(matchData);
   };
 
@@ -118,7 +122,12 @@ const WaitingPage = ({ goToPage }) => {
       {sharedData.event_time && (
         <div style={{ marginTop: "20px" }}>
           <h2>Event Countdown</h2>
-          <Countdown initialSeconds={initialSeconds} onComplete={() => {goToPage("join")}} />
+          <Countdown
+            initialSeconds={initialSeconds}
+            onComplete={() => {
+              goToPage("join");
+            }}
+          />
         </div>
       )}
 

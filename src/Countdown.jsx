@@ -1,26 +1,29 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 const Countdown = ({ initialSeconds, onComplete }) => {
   const [secondsLeft, setSecondsLeft] = useState(initialSeconds);
+  const endTimeRef = useRef(Date.now() + initialSeconds * 1000);
 
-  // Format seconds into hh:mm:ss
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const remaining = Math.round((endTimeRef.current - Date.now()) / 1000);
+      setSecondsLeft(remaining);
+
+      if (remaining <= 0) {
+        clearInterval(interval);
+        onComplete();
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [onComplete]);
+
   const formatTime = (secs) => {
     const h = String(Math.floor(secs / 3600)).padStart(2, "0");
     const m = String(Math.floor((secs % 3600) / 60)).padStart(2, "0");
     const s = String(secs % 60).padStart(2, "0");
     return `${h}:${m}:${s}`;
   };
-
-  useEffect(() => {
-    if (secondsLeft <= 0) {
-      onComplete();
-      return;
-    }
-    const interval = setInterval(() => {
-      setSecondsLeft((prev) => prev - 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [secondsLeft, onComplete]);
 
   return (
     <div
@@ -33,7 +36,7 @@ const Countdown = ({ initialSeconds, onComplete }) => {
         fontFamily: "monospace",
       }}
     >
-      {formatTime(secondsLeft)}
+      {formatTime(Math.max(0, secondsLeft))}
     </div>
   );
 };
