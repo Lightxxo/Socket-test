@@ -24,25 +24,66 @@ const DatingPage = ({ goToPage }) => {
     }
   }, [sharedData, updateSharedData]);
 
+  async function onLeave() {
+    try {
+      const response = await fetch(`${API}join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_id: sharedData.event_id,
+          user: sharedData.user,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Join response:", data);
+
+        // Emit join events via socket
+        socket.emit("switch_room", {
+          from: sharedData.dateRoomId,
+          to: sharedData.event_id,
+        });
+
+        // Navigate to waiting page
+        goToPage("waiting");
+      } else {
+        console.error(
+          "Failed to join, server responded with status:",
+          response.status
+        );
+      }
+    } catch (error) {
+      console.error("Error submitting join form:", error);
+    }
+  }
+  // Listen to the socket connect event
+  useEffect(() => {
+    // socket.on("connect", () => {
+    //   console.log("Connected with id:", socket.id);
+    // });
+
+    socket.on("has_left", onLeave);
+
+    return () => {
+      socket.off("has_left", onLeave);
+    };
+  }, [socket]);
+
   const handleTimerComplete = async () => {
     console.log("Timer finished — calling completion API");
     try {
-      // const res = await fetch(`${API}dateComplete`, {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({
-      //     event_id: sharedData.event_id,
-      //     dateRoomId: sharedData.dateRoomId,
-      //     userData: sharedData.user,
-      //   }),
-      // });
+      const res = await fetch(`${API}leaveDatingRoom`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_id: sharedData.event_id,
+          user_id: sharedData.user.user_id,
+        }),
+      });
       // const json = await res.json();
       // console.log("dateComplete response:", json);
-      socket.emit("switch_room", {
-        from: sharedData.dateRoomId,
-        to: sharedData.event_id,
-      });
-      goToPage("waiting");
+
       // fetch
     } catch (err) {
       console.error("Error calling dateComplete:", err);

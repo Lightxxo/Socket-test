@@ -40,9 +40,11 @@ const WaitingPage = ({ goToPage }) => {
 
   useEffect(() => {
     const handleMatchFound = (data) => {
-      if (isConfirmed) return;
-      setMatchData(data);
-      setShowModal(true);
+      if(data.pair.includes(sharedData.user.user_id)) {
+        if (isConfirmed) return;
+        setMatchData(data);
+        setShowModal(true);
+      }
     };
 
     socket.on("match_found", handleMatchFound);
