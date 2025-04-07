@@ -1,13 +1,28 @@
 import React, { useEffect, useState, useRef } from "react";
 
-const Countdown = ({ initialSeconds, onComplete }) => {
+const Countdown = ({ initialSeconds, onComplete, bindControls, setRemainingTime }) => {
   const [secondsLeft, setSecondsLeft] = useState(initialSeconds);
   const endTimeRef = useRef(Date.now() + initialSeconds * 1000);
+
+  useEffect(() => {
+    if (typeof bindControls === "function") {
+      bindControls({
+        addSeconds: (seconds) => {
+          endTimeRef.current += seconds * 1000;
+          setSecondsLeft((prev) => prev + seconds);
+        },
+      });
+    }
+  }, [bindControls]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       const remaining = Math.round((endTimeRef.current - Date.now()) / 1000);
       setSecondsLeft(remaining);
+
+      if (setRemainingTime) {
+        setRemainingTime(remaining); // Call only if provided
+      }
 
       if (remaining <= 0) {
         clearInterval(interval);
@@ -16,7 +31,7 @@ const Countdown = ({ initialSeconds, onComplete }) => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [onComplete]);
+  }, [onComplete, setRemainingTime]);
 
   const formatTime = (secs) => {
     const h = String(Math.floor(secs / 3600)).padStart(2, "0");

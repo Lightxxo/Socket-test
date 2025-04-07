@@ -1,14 +1,19 @@
-import React, { useContext, useEffect } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { SocketContext } from "./SocketContext";
 import { AppContext } from "./AppContext";
 import Countdown from "./countdown";
 import config from "./config";
+import { on } from "events";
 
 const { API } = config;
 
 const DatingPage = ({ goToPage }) => {
+  const timerControlsRef = useRef(null);
   const socket = useContext(SocketContext);
   const { sharedData, updateSharedData } = useContext(AppContext);
+  const [remainingTime, setRemainingTime] = useState(sharedData.timer);
+  const [isConfirmed, setIsConfirmed] = useState(null);
+  const [matched, setMatched] = useState(false);
 
   useEffect(() => {
     if (sharedData.timerActive) {
@@ -57,20 +62,27 @@ const DatingPage = ({ goToPage }) => {
       console.error("Error submitting join form:", error);
     }
   }
+  const onExtendRequest = async (data) => {
+    setIsConfirmed(data.user_id);
+    console.log("Received extend request:", data);
+  };
+
+  const onClicked = async (data) => {
+    timerControlsRef.current?.addSeconds(30);
+  };
+
   // Listen to the socket connect event
   useEffect(() => {
-    // socket.on("connect", () => {
-    //   console.log("Connected with id:", socket.id);
-    // });
-
     socket.on("has_left", onLeave);
+    socket.on("extend_request", onExtendRequest);
+    socket.on("clicked", onClicked);
 
     return () => {
       socket.off("has_left", onLeave);
     };
   }, [socket]);
 
-  const handleTimerComplete = async () => {
+  const leaveDating = async () => {
     console.log("Timer finished — calling completion API");
     try {
       const res = await fetch(`${API}leaveDatingRoom`, {
@@ -81,12 +93,25 @@ const DatingPage = ({ goToPage }) => {
           user_id: sharedData.user.user_id,
         }),
       });
-      // const json = await res.json();
-      // console.log("dateComplete response:", json);
-
-      // fetch
     } catch (err) {
       console.error("Error calling dateComplete:", err);
+    }
+  };
+
+  const extendFunc = async () => {
+    console.log("Extending timer");
+    try {
+      const res = await fetch(`${API}extend`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dateRoomId: sharedData.dateRoomId,
+          event_id: sharedData.event_id,
+          user_id: sharedData.user.user_id,
+        }),
+      });
+    } catch (err) {
+      console.error("Error extending timer:", err);
     }
   };
 
@@ -114,14 +139,37 @@ const DatingPage = ({ goToPage }) => {
 
       <Countdown
         initialSeconds={sharedData.timer}
-        onComplete={handleTimerComplete}
+        onComplete={leaveDating}
+        bindControls={(controls) => (timerControlsRef.current = controls)}
+        setRemainingTime={setRemainingTime}
       />
+      {/* {remainingTime < 15 && (
+        <button onClick={() => timerControlsRef.current?.addSeconds(10)}>
+          Add 10 Seconds
+        </button>
+      )} */}
+
+      {remainingTime < 25 && <button onClick={extendFunc}>Extend</button>}
+
+      {isConfirmed !== null &&
+        (isConfirmed === sharedData.user.user_id ? (
+          <p>Waiting for confirmation...</p>
+        ) : (
+          <p>Other user has extended</p>
+        ))}
 
       <button
-        onClick={() => goToPage("join")}
-        style={{ marginTop: "20px", padding: "10px 20px" }}
+        onClick={leaveDating}
+        style={{
+          marginTop: "20px",
+          padding: "10px 20px",
+          color: "white",
+          backgroundColor: "red",
+          border: "none",
+          borderRadius: "5px",
+        }}
       >
-        Go to Join Page
+        Leave
       </button>
     </div>
   );

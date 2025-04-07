@@ -7,6 +7,7 @@ import Countdown from "./countdown";
 const { API } = config;
 
 const WaitingPage = ({ goToPage }) => {
+  
   const socket = useContext(SocketContext);
   const { sharedData, updateSharedData } = useContext(AppContext);
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -40,7 +41,7 @@ const WaitingPage = ({ goToPage }) => {
 
   useEffect(() => {
     const handleMatchFound = (data) => {
-      if(data.pair.includes(sharedData.user.user_id)) {
+      if (data.pair.includes(sharedData.user.user_id)) {
         if (isConfirmed) return;
         setMatchData(data);
         setShowModal(true);
@@ -103,6 +104,27 @@ const WaitingPage = ({ goToPage }) => {
     setShowModal(false);
   };
 
+  const leaveEvent = async () => {
+    const response = await fetch(`${API}leave_event`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event_id: sharedData.event_id,
+        user: sharedData.user,
+      }),
+    });
+    if (response.ok) {
+      const data = await response.json();
+      console.log("Leave event response:", data);
+      goToPage("join");
+    } else {
+      console.log(
+        "Failed to leave event, server responded with status:",
+        response.status
+      );
+    }
+  };
+
   // Calculate countdown seconds using event_time in sharedData.
   // The difference is computed from now until the event_time.
   let initialSeconds = 0;
@@ -119,6 +141,19 @@ const WaitingPage = ({ goToPage }) => {
     <div style={{ padding: "20px" }}>
       <h1>Waiting Room</h1>
       <p>Waiting for a match...</p>
+      <button
+        onClick={leaveEvent}
+        style={{
+          marginTop: "20px",
+          padding: "10px 20px",
+          color: "white",
+          backgroundColor: "red",
+          border: "none",
+          borderRadius: "5px",
+        }}
+      >
+        Leave Event
+      </button>
 
       {/* Render event countdown if event_time is available */}
       {sharedData.event_time && (
@@ -126,9 +161,7 @@ const WaitingPage = ({ goToPage }) => {
           <h2>Event Countdown</h2>
           <Countdown
             initialSeconds={initialSeconds}
-            onComplete={() => {
-              goToPage("join");
-            }}
+            onComplete={leaveEvent}
           />
         </div>
       )}

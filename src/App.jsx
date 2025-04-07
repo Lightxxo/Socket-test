@@ -1,11 +1,23 @@
-import React, { useState } from "react";
+// App.js
+import React, { useRef, useState } from "react";
+import { io } from "socket.io-client";
+import config from "./config";
+import { SocketContext } from "./SocketContext";
+import { AppProvider } from "./AppContext";
 import JoinPage from "./JoinPage";
 import WaitingPage from "./WaitingPage";
 import DatingPage from "./DatingPage";
-import { SocketProvider } from "./SocketContext";
-import { AppProvider } from "./AppContext";
+
+const { API } = config;
 
 const App = () => {
+  // Use a ref to store the socket instance so it is created only once.
+  const socketRef = useRef();
+  if (!socketRef.current) {
+    socketRef.current = io(API);
+  }
+  const socket = socketRef.current;
+
   const [currentPage, setCurrentPage] = useState("join");
 
   const goToPage = (page) => {
@@ -27,7 +39,7 @@ const App = () => {
 
   return (
     <AppProvider>
-      <SocketProvider>
+      <SocketContext.Provider value={socket}>
         <div>
           {renderPage()}
           {/* Global Navigation */}
@@ -47,7 +59,7 @@ const App = () => {
             <button onClick={() => goToPage("dating")}>Dating</button>
           </div>
         </div>
-      </SocketProvider>
+      </SocketContext.Provider>
     </AppProvider>
   );
 };
