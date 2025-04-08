@@ -14,9 +14,7 @@ const WaitingPage = ({ goToPage }) => {
   const [matchData, setMatchData] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
-  useEffect(() => {
-    console.log("#######", sharedData);
-  }, [sharedData]);
+
 
   useEffect(() => {
     if (!sharedData.event_id) return;
@@ -41,6 +39,7 @@ const WaitingPage = ({ goToPage }) => {
 
   useEffect(() => {
     const handleMatchFound = (data) => {
+      console.log("MATCH FOUND", data);
       if (data.pair.includes(sharedData.user.user_id)) {
         if (isConfirmed) return;
         setMatchData(data);

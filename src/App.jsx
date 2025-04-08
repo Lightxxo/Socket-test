@@ -14,7 +14,14 @@ const App = () => {
   // Use a ref to store the socket instance so it is created only once.
   const socketRef = useRef();
   if (!socketRef.current) {
-    socketRef.current = io(API);
+    socketRef.current = io(API, {
+      query: {
+        event_id: 1,
+        user_id: 1,
+        gender: "F",
+        interested: "M",
+      },
+    });
   }
   const socket = socketRef.current;
 
@@ -40,25 +47,7 @@ const App = () => {
   return (
     <AppProvider>
       <SocketContext.Provider value={socket}>
-        <div>
-          {renderPage()}
-          {/* Global Navigation */}
-          <div style={{ padding: "20px", borderTop: "1px solid #ccc" }}>
-            <button
-              onClick={() => goToPage("join")}
-              style={{ marginRight: "10px" }}
-            >
-              Join
-            </button>
-            <button
-              onClick={() => goToPage("waiting")}
-              style={{ marginRight: "10px" }}
-            >
-              Waiting
-            </button>
-            <button onClick={() => goToPage("dating")}>Dating</button>
-          </div>
-        </div>
+        <div>{renderPage()}</div>
       </SocketContext.Provider>
     </AppProvider>
   );

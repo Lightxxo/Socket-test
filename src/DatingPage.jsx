@@ -32,7 +32,7 @@ const DatingPage = ({ goToPage }) => {
 
   async function onLeave() {
     try {
-      const response = await fetch(`${API}joiun`, {
+      const response = await fetch(`${API}join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
