@@ -28,8 +28,10 @@ const WaitingPage = ({ goToPage }) => {
     };
 
     socket.once("start_date", handleStartDate);
+    socket.on("has_left", onLeave);
 
     return () => {
+      socket.off("has_left", onLeave);
       socket.off("start_date", handleStartDate);
       if (sharedData.timeoutRef) {
         clearTimeout(sharedData.timeoutRef);
@@ -54,6 +56,41 @@ const WaitingPage = ({ goToPage }) => {
     };
   }, [socket, isConfirmed]);
 
+
+
+  async function onLeave() {
+    try {
+      const response = await fetch(`${API}join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_id: sharedData.event_id,
+          user: sharedData.user,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Join response:", data);
+
+        // Emit join events via socket
+        socket.emit("switch_room", {
+          from: sharedData.dateRoomId,
+          to: sharedData.event_id,
+        });
+
+      } else {
+        goToPage("join");
+        console.error(
+          "Failed to join, server responded with status:",
+          response.status
+        );
+      }
+    } catch (error) {
+      console.error("Error submitting join form:", error);
+    }
+  }
+
   const confirmDate = async (data) => {
     try {
       const response = await fetch(`${API}confirmDate`, {
@@ -71,11 +108,24 @@ const WaitingPage = ({ goToPage }) => {
       if (response.ok) {
         updateSharedData({ dateRoomId: data.dateRoomId, timerActive: true });
 
-        const timeoutId = setTimeout(() => {
+        const timeoutId = setTimeout(async () => {
           console.log(
             "❌ Other user did not join in time. Call failure API..."
           );
           // Failure API callback; currently does nothing else.
+          
+          try {
+            const res = await fetch(`${API}leaveDatingRoom`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                event_id: sharedData.event_id,
+                user_id: sharedData.user.user_id,
+              }),
+            });
+          } catch (err) {
+            console.error("Error: ", err);
+          }
         }, 10000);
         updateSharedData({ timeoutRef: timeoutId }); // Store timeout reference in sharedData
       } else {
