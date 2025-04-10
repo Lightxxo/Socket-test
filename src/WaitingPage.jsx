@@ -7,32 +7,29 @@ import Countdown from "./countdown";
 const { API } = config;
 
 const WaitingPage = ({ goToPage }) => {
-  
   const socket = useContext(SocketContext);
   const { sharedData, updateSharedData } = useContext(AppContext);
-  const [isConfirmed, setIsConfirmed] = useState(false);
-  const [matchData, setMatchData] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-
-
+  // const [isConfirmed, setIsConfirmed] = useState(false);
+  // const [matchData, setMatchData] = useState(null);
+  // const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     if (!sharedData.event_id) return;
 
-    const handleStartDate = (dateData) => {
-      if (sharedData.timeoutRef) {
-        clearTimeout(sharedData.timeoutRef);
-      }
-      updateSharedData({ timer: dateData.timer });
-      goToPage("dating");
-    };
+    // const handleStartDate = (dateData) => {
+    //   if (sharedData.timeoutRef) {
+    //     clearTimeout(sharedData.timeoutRef);
+    //   }
+    //   updateSharedData({ timer: dateData.timer });
+    //   goToPage("dating");
+    // };
 
-    socket.once("start_date", handleStartDate);
-    socket.on("has_left", onLeave);
+    // socket.once("start_date", handleStartDate);
+    // socket.on("has_left", onLeave);
 
     return () => {
-      socket.off("has_left", onLeave);
-      socket.off("start_date", handleStartDate);
+      // socket.off("has_left", onLeave);
+      // socket.off("start_date", handleStartDate);
       if (sharedData.timeoutRef) {
         clearTimeout(sharedData.timeoutRef);
       }
@@ -41,11 +38,21 @@ const WaitingPage = ({ goToPage }) => {
 
   useEffect(() => {
     const handleMatchFound = (data) => {
-      console.log("MATCH FOUND", data);
+      console.log("MATCH FOUND", data.pair, sharedData.user.user_id);
       if (data.pair.includes(sharedData.user.user_id)) {
-        if (isConfirmed) return;
-        setMatchData(data);
-        setShowModal(true);
+        updateSharedData({
+          dateRoomId: data.dateRoomId,
+          timer: data.timer,
+        });
+        socket.emit("switch_room", {
+          from: sharedData.event_id,
+          to: data.dateRoomId,
+        });
+        // if (isConfirmed) return;
+        // setMatchData(data);
+        // setShowModal(true);
+        console.log("going to dating...");
+        goToPage("dating");
       }
     };
 
@@ -54,104 +61,101 @@ const WaitingPage = ({ goToPage }) => {
     return () => {
       socket.off("match_found", handleMatchFound);
     };
-  }, [socket, isConfirmed]);
+  }, [socket]);
 
+  // async function onLeave() {
+  //   try {
+  //     const response = await fetch(`${API}join`, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         event_id: sharedData.event_id,
+  //         user: sharedData.user,
+  //       }),
+  //     });
 
+  //     if (response.ok) {
+  //       const data = await response.json();
+  //       console.log("Join response:", data);
 
-  async function onLeave() {
-    try {
-      const response = await fetch(`${API}join`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event_id: sharedData.event_id,
-          user: sharedData.user,
-        }),
-      });
+  //       // Emit join events via socket
+  //       socket.emit("switch_room", {
+  //         from: sharedData.dateRoomId,
+  //         to: sharedData.event_id,
+  //       });
+  //     } else {
+  //       goToPage("join");
+  //       console.error(
+  //         "Failed to join, server responded with status:",
+  //         response.status
+  //       );
+  //     }
+  //   } catch (error) {
+  //     console.error("Error submitting join form:", error);
+  //   }
+  // }
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Join response:", data);
+  // const confirmDate = async (data) => {
+  //   try {
+  //     const response = await fetch(`${API}confirmDate`, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         pair: data.pair,
+  //         event_id: sharedData.event_id,
+  //         dateRoomId: data.dateRoomId,
+  //         userData: sharedData.user,
+  //       }),
+  //     });
+  //     const result = await response.json();
 
-        // Emit join events via socket
-        socket.emit("switch_room", {
-          from: sharedData.dateRoomId,
-          to: sharedData.event_id,
-        });
+  //     if (response.ok) {
+  //       updateSharedData({ dateRoomId: data.dateRoomId, timerActive: true });
 
-      } else {
-        goToPage("join");
-        console.error(
-          "Failed to join, server responded with status:",
-          response.status
-        );
-      }
-    } catch (error) {
-      console.error("Error submitting join form:", error);
-    }
-  }
+  //       const timeoutId = setTimeout(async () => {
+  //         console.log(
+  //           "❌ Other user did not join in time. Call failure API..."
+  //         );
+  //         // Failure API callback; currently does nothing else.
 
-  const confirmDate = async (data) => {
-    try {
-      const response = await fetch(`${API}confirmDate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pair: data.pair,
-          event_id: sharedData.event_id,
-          dateRoomId: data.dateRoomId,
-          userData: sharedData.user,
-        }),
-      });
-      const result = await response.json();
+  //         try {
+  //           const res = await fetch(`${API}leaveDatingRoom`, {
+  //             method: "PUT",
+  //             headers: { "Content-Type": "application/json" },
+  //             body: JSON.stringify({
+  //               event_id: sharedData.event_id,
+  //               user_id: sharedData.user.user_id,
+  //             }),
+  //           });
+  //         } catch (err) {
+  //           console.error("Error: ", err);
+  //         }
+  //       }, 10000);
+  //       updateSharedData({ timeoutRef: timeoutId }); // Store timeout reference in sharedData
+  //     } else {
+  //       console.error("confirmDate API call failed", result);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error in confirmDate:", error);
+  //   }
+  // };
 
-      if (response.ok) {
-        updateSharedData({ dateRoomId: data.dateRoomId, timerActive: true });
+  // const handleAccept = () => {
+  //   if (!matchData) return;
+  //   setIsConfirmed(true);
+  //   setShowModal(false);
+  //   socket.emit("switch_room", {
+  //     from: sharedData.event_id,
+  //     to: matchData.dateRoomId,
+  //   });
 
-        const timeoutId = setTimeout(async () => {
-          console.log(
-            "❌ Other user did not join in time. Call failure API..."
-          );
-          // Failure API callback; currently does nothing else.
-          
-          try {
-            const res = await fetch(`${API}leaveDatingRoom`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                event_id: sharedData.event_id,
-                user_id: sharedData.user.user_id,
-              }),
-            });
-          } catch (err) {
-            console.error("Error: ", err);
-          }
-        }, 10000);
-        updateSharedData({ timeoutRef: timeoutId }); // Store timeout reference in sharedData
-      } else {
-        console.error("confirmDate API call failed", result);
-      }
-    } catch (error) {
-      console.error("Error in confirmDate:", error);
-    }
-  };
+  //   confirmDate(matchData);
+  // };
 
-  const handleAccept = () => {
-    if (!matchData) return;
-    setIsConfirmed(true);
-    setShowModal(false);
-    socket.emit("switch_room", {
-      from: sharedData.event_id,
-      to: matchData.dateRoomId,
-    });
-
-    confirmDate(matchData);
-  };
-
-  const handleDecline = () => {
-    console.log("User declined the match.");
-    setShowModal(false);
-  };
+  // const handleDecline = () => {
+  //   console.log("User declined the match.");
+  //   setShowModal(false);
+  // };
 
   const leaveEvent = async () => {
     const response = await fetch(`${API}leave_event`, {
@@ -204,7 +208,7 @@ const WaitingPage = ({ goToPage }) => {
         Leave Event
       </button>
 
-      {/* Render event countdown if event_time is available */}
+
       {sharedData.event_time && (
         <div style={{ marginTop: "20px" }}>
           <h2>Event Countdown</h2>
@@ -214,7 +218,7 @@ const WaitingPage = ({ goToPage }) => {
           />
         </div>
       )}
-
+{/*
       {showModal && matchData && (
         <div
           style={{
@@ -252,7 +256,7 @@ const WaitingPage = ({ goToPage }) => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 };

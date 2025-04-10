@@ -9,90 +9,30 @@ const { API } = config;
 const DatingPage = ({ goToPage }) => {
   const timerControlsRef = useRef(null);
   const socket = useContext(SocketContext);
-  const { sharedData, updateSharedData } = useContext(AppContext);
+  const { sharedData } = useContext(AppContext);
+
+  // ← guard state
+  const [hasLeft, setHasLeft] = useState(false);
+
   const [remainingTime, setRemainingTime] = useState(sharedData.timer);
   const [isConfirmed, setIsConfirmed] = useState(null);
   const [matched, setMatched] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [isExtendDisabled, setIsExtendDisabled] = useState(false);
 
-  useEffect(() => {
-    if (sharedData.timerActive) {
-      console.log("✅ Cancelling timeout since user arrived in dating room");
 
-      // Cancel timeout if it's still active when user arrives in dating room
-      if (sharedData.timeoutRef) {
-        clearTimeout(sharedData.timeoutRef);
-        updateSharedData({ timeoutRef: null }); // Clear the reference from sharedData
-      }
 
-      updateSharedData({ timerActive: false });
-    }
-  }, [sharedData, updateSharedData]);
-
-  async function onLeave() {
-    try {
-      const response = await fetch(`${API}join`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event_id: sharedData.event_id,
-          user: sharedData.user,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Join response:", data);
-
-        // Emit join events via socket
-        socket.emit("switch_room", {
-          from: sharedData.dateRoomId,
-          to: sharedData.event_id,
-        });
-
-        // Navigate to waiting page
-        goToPage("waiting");
-      } else {
-        goToPage("join");
-        console.error(
-          "Failed to join, server responded with status:",
-          response.status
-        );
-      }
-    } catch (error) {
-      console.error("Error submitting join form:", error);
-    }
-  }
-
-  const onExtendRequest = async (data) => {
-    setIsConfirmed(data.user_id);
-    console.log("Received extend request:", data);
-  };
-
-  const onClicked = async (data) => {
-    timerControlsRef.current?.addSeconds(30);
-    setMatched(true);
-    setShowModal(true);
-  };
-
-  // Listen to the socket events
-  useEffect(() => {
-    socket.on("has_left", onLeave);
-    socket.on("extend_request", onExtendRequest);
-    socket.on("clicked", onClicked);
-
-    return () => {
-      socket.off("has_left", onLeave);
-      socket.off("extend_request", onExtendRequest);
-      socket.off("clicked", onClicked);
-    };
-  }, [socket]);
-
+  // unified leave logic
   const leaveDating = async () => {
-    console.log("Timer finished — calling completion API");
+    // ← guard against multiple calls
+    if (hasLeft) return;
+    setHasLeft(true);
+
+    console.log("Leaving dating room…");
+
+    // 1) notify server that date is complete
     try {
-      const res = await fetch(`${API}leaveDatingRoom`, {
+      await fetch(`${API}leaveDatingRoom`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -105,12 +45,61 @@ const DatingPage = ({ goToPage }) => {
     }
   };
 
+  // socket-driven “has_left”
+  const onLeave = async () => {
+    socket.emit("switch_room", {
+      from: sharedData.dateRoomId,
+      to: sharedData.event_id,
+    });
+    goToPage("waiting");
+    try {
+      const response = await fetch(`${API}join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_id: sharedData.event_id,
+          user: sharedData.user,
+        }),
+      });
+      if (!response.ok) {
+        console.error("Join failed:", response.status);
+        goToPage("join");
+      }
+    } catch (error) {
+      console.error("Error submitting join form:", error);
+    }
+  };
+
+  const onExtendRequest = (data) => {
+    setIsConfirmed(data.user_id);
+  };
+
+  const onClicked = (data) => {
+    timerControlsRef.current?.addSeconds(30);
+    setMatched(true);
+    setShowModal(true);
+  };
+
+  useEffect(() => {
+
+
+    socket.on("has_left", onLeave);
+    socket.on("extend_request", onExtendRequest);
+    socket.on("clicked", onClicked);
+
+    
+    return () => {
+      socket.off("has_left", onLeave);
+      socket.off("extend_request", onExtendRequest);
+      socket.off("clicked", onClicked);
+    };
+  }, [socket, hasLeft]);
+
   const extendFunc = async () => {
-    console.log("Extending timer");
-    // Disable the extend button once pressed
+    if (hasLeft) return;
     setIsExtendDisabled(true);
     try {
-      const res = await fetch(`${API}extend`, {
+      await fetch(`${API}extend`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -148,20 +137,19 @@ const DatingPage = ({ goToPage }) => {
 
       <Countdown
         initialSeconds={sharedData.timer}
-        onComplete={leaveDating}
-        bindControls={(controls) => (timerControlsRef.current = controls)}
+        onComplete={leaveDating} // ← timer calls same leaveDating
+        bindControls={(c) => (timerControlsRef.current = c)}
         setRemainingTime={setRemainingTime}
       />
 
-      {/* Extend Button: Only show if not matched and remainingTime < 25 */}
       {!matched && remainingTime < 25 && (
         <button
           onClick={extendFunc}
           disabled={isExtendDisabled}
           style={{
-            marginTop: "20px",
+            marginTop: 20,
             padding: "10px 20px",
-            borderRadius: "5px",
+            borderRadius: 5,
             border: "none",
             backgroundColor: isExtendDisabled ? "grey" : "#007bff",
             color: "white",
@@ -172,38 +160,31 @@ const DatingPage = ({ goToPage }) => {
         </button>
       )}
 
-      {/* Conditional Text - Hidden when matched is true */}
       {!matched && isConfirmed !== null && (
-        <div style={{ marginTop: "20px" }}>
+        <div style={{ marginTop: 20 }}>
           {isConfirmed === sharedData.user.user_id ? (
-            <p style={{ color: "yellow", margin: "0" }}>
-              Waiting for confirmation...
-            </p>
+            <p style={{ color: "yellow" }}>Waiting for confirmation…</p>
           ) : (
-            <p style={{ color: "green", margin: "0" }}>
-              Other user has extended
-            </p>
+            <p style={{ color: "green" }}>Other user has extended</p>
           )}
         </div>
       )}
 
-      {/* Leave Button */}
       <button
         onClick={leaveDating}
         style={{
-          marginTop: "20px",
+          marginTop: 20,
           padding: "10px 20px",
           color: "white",
           backgroundColor: "red",
           border: "none",
-          borderRadius: "5px",
+          borderRadius: 5,
           cursor: "pointer",
         }}
       >
         Leave
       </button>
 
-      {/* Modal */}
       {matched && showModal && (
         <div
           style={{
@@ -212,7 +193,7 @@ const DatingPage = ({ goToPage }) => {
             left: 0,
             width: "100vw",
             height: "100vh",
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backgroundColor: "rgba(0,0,0,0.5)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -222,19 +203,19 @@ const DatingPage = ({ goToPage }) => {
           <div
             style={{
               backgroundColor: "black",
-              padding: "30px",
-              borderRadius: "10px",
+              padding: 30,
+              borderRadius: 10,
               boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
               textAlign: "center",
-              minWidth: "250px",
+              minWidth: 250,
             }}
           >
-            <h2 style={{ marginBottom: "20px" }}>Clicked!</h2>
+            <h2 style={{ marginBottom: 20 }}>Clicked!</h2>
             <button
               onClick={() => setShowModal(false)}
               style={{
                 padding: "10px 20px",
-                borderRadius: "5px",
+                borderRadius: 5,
                 border: "none",
                 backgroundColor: "#28a745",
                 color: "white",
